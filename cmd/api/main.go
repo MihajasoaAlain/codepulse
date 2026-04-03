@@ -1,6 +1,7 @@
 package main
 
 import (
+	"codepulse/docs"
 	"context"
 	"fmt"
 	"log"
@@ -37,8 +38,17 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	done <- true
 }
 
-func main() {
+//@title codepulse api
+//@version 1.0
+//@description API pour l´ application codepulse
+//@contact.name Mihajasoa
+//@contact.email mihajasoaalain85@gmail.com
 
+// @host localhost:8080
+// @BasePath /
+func main() {
+	docs.SwaggerInfo.Host = ""
+	docs.SwaggerInfo.Schemes = []string{}
 	server := server.NewServer()
 
 	// Create a done channel to signal when the shutdown is complete

@@ -3,8 +3,12 @@ package server
 import (
 	"net/http"
 
+	_ "codepulse/docs"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -16,7 +20,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true, // Enable cookies/auth
 	}))
-
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/", s.HelloWorldHandler)
 
 	r.GET("/health", s.healthHandler)
@@ -24,6 +28,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 	return r
 }
 
+// HelloWorldHandler godoc
+// @Summary      test helloword
+// @Description  add
+// @Tags         Hello
+// @Produce      JSON
+// @Success      200
+// @Router       / [get]
 func (s *Server) HelloWorldHandler(c *gin.Context) {
 	resp := make(map[string]string)
 	resp["message"] = "Hello World"
