@@ -1,6 +1,7 @@
 package server
 
 import (
+	"codepulse/internal/auth/routes"
 	"net/http"
 
 	_ "codepulse/docs"
@@ -24,6 +25,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 
 	r.GET("/health", s.healthHandler)
+	routes.AuthRoutes(r)
 
 	return r
 }
