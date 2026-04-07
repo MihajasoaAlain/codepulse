@@ -38,12 +38,17 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	done <- true
 }
 
-//@title codepulse api
-//@version 1.0
-//@description API pour l´ application codepulse
-//@contact.name Mihajasoa
-//@contact.email mihajasoaalain85@gmail.com
-
+// @title codepulse api
+// @version 1.0
+// @description API pour l´ application codepulse
+// @contact.name Mihajasoa
+// @contact.email mihajasoaalain85@gmail.com
+// @securityDefinitions.apikey BearerAuth
+// @type http
+// @schema bearer
+// @in header
+// @name Authorization
+// @bearerFormat JWT
 // @host localhost:8080
 // @BasePath /
 func main() {
