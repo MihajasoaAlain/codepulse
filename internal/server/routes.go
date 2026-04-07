@@ -23,9 +23,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/", s.HelloWorldHandler)
-
-	r.Use(JWTAuthMiddleware()).GET("/health", s.healthHandler)
 	routes.AuthRoutes(r)
+	r.Use(JWTAuthMiddleware()).GET("/health", s.healthHandler)
 
 	return r
 }
@@ -34,7 +33,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 // @Summary      test helloword
 // @Description  add
 // @Tags         Hello
-// @Produce      JSON
 // @Success      200
 // @Router       / [get]
 func (s *Server) HelloWorldHandler(c *gin.Context) {
@@ -44,6 +42,13 @@ func (s *Server) HelloWorldHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// healthHandler godoc
+// @Summary Get health status
+// @Description Get the health status of the application
+// @Tags Health
+// @Success 200 {object} map[string]interface{}
+// @Security BearerAuth
+// @Router /health [get]
 func (s *Server) healthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Health())
 }
