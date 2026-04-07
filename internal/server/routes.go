@@ -24,7 +24,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/", s.HelloWorldHandler)
 
-	r.GET("/health", s.healthHandler)
+	r.Use(JWTAuthMiddleware()).GET("/health", s.healthHandler)
 	routes.AuthRoutes(r)
 
 	return r
