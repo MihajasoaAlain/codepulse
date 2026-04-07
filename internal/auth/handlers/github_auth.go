@@ -12,6 +12,21 @@ import (
 	"codepulse/internal/utils"
 )
 
+type githubAuthErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type githubCallbackResponse struct {
+	User  map[string]interface{} `json:"user"`
+	Token string                 `json:"token"`
+}
+
+// GithubLogin godoc
+// @Summary Start GitHub OAuth login
+// @Description Redirects the client to GitHub's OAuth consent page.
+// @Tags Auth
+// @Success 307 {string} string "Temporary Redirect to GitHub"
+// @Router /auth/github/login [get]
 func GithubLogin(c *gin.Context) {
 
 	url := config.GithubOAuthConfig.AuthCodeURL("state")
@@ -19,6 +34,15 @@ func GithubLogin(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+// GithubCallback godoc
+// @Summary Handle GitHub OAuth callback
+// @Description Exchanges the GitHub OAuth code, fetches user profile, and returns a JWT.
+// @Tags Auth
+// @Param code query string true "GitHub OAuth authorization code"
+// @Produce json
+// @Success 200 {object} githubCallbackResponse
+// @Failure 500 {object} githubAuthErrorResponse
+// @Router /auth/github/callback [get]
 func GithubCallback(c *gin.Context) {
 
 	code := c.Query("code")
@@ -69,7 +93,8 @@ func GithubCallback(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
+
 		"user":  githubUser,
-		"token": jwtToken,
+		"token": "Bearer " + jwtToken,
 	})
 }
