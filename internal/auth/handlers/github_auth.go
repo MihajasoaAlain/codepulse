@@ -3,13 +3,20 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
+	"strings"
+	"sync"
+	"time"
 
 	"codepulse/internal/auth/config"
+	"codepulse/internal/features/users/models"
+	"codepulse/internal/features/users/repository"
 	"codepulse/internal/utils"
+
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type githubAuthErrorResponse struct {
@@ -17,15 +24,38 @@ type githubAuthErrorResponse struct {
 }
 
 type githubCallbackResponse struct {
-	User  map[string]interface{} `json:"user"`
-	Token string                 `json:"token"`
+	User  interface{} `json:"user"`
+	Token string      `json:"token"`
+}
+
+var (
+	userRepo   repository.UserRepository
+	userRepoMu sync.RWMutex
+)
+
+func getUserRepository() repository.UserRepository {
+	userRepoMu.RLock()
+	repo := userRepo
+	userRepoMu.RUnlock()
+
+	if repo != nil {
+		return repo
+	}
+
+	userRepoMu.Lock()
+	defer userRepoMu.Unlock()
+
+	if userRepo == nil {
+		userRepo = repository.NewMongoUserRepository()
+	}
+
+	return userRepo
 }
 
 // GithubLogin godoc
 // @Summary Start GitHub OAuth login
-// @Description Redirects the client to GitHub's OAuth consent page.
 // @Tags Auth
-// @Success 307 {string} string "Temporary Redirect to GitHub"
+// @Success 307 {string} string "Redirect to GitHub"
 // @Router /auth/github/login [get]
 func GithubLogin(c *gin.Context) {
 
@@ -36,9 +66,7 @@ func GithubLogin(c *gin.Context) {
 
 // GithubCallback godoc
 // @Summary Handle GitHub OAuth callback
-// @Description Exchanges the GitHub OAuth code, fetches user profile, and returns a JWT.
 // @Tags Auth
-// @Param code query string true "GitHub OAuth authorization code"
 // @Produce json
 // @Success 200 {object} githubCallbackResponse
 // @Failure 500 {object} githubAuthErrorResponse
@@ -53,9 +81,9 @@ func GithubCallback(c *gin.Context) {
 	)
 
 	if err != nil {
-
-		c.JSON(500, gin.H{"error": "token exchange failed"})
-
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "token exchange failed",
+		})
 		return
 	}
 
@@ -64,12 +92,12 @@ func GithubCallback(c *gin.Context) {
 		token,
 	)
 
+	// récupérer profil GitHub
 	resp, err := client.Get("https://api.github.com/user")
-
 	if err != nil {
-
-		c.JSON(500, gin.H{"error": "failed to get user"})
-
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to fetch github user",
+		})
 		return
 	}
 
@@ -79,22 +107,107 @@ func GithubCallback(c *gin.Context) {
 
 	var githubUser map[string]interface{}
 
-	json.Unmarshal(body, &githubUser)
+	if err := json.Unmarshal(body, &githubUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "invalid github response",
+		})
+		return
+	}
 
-	jwtToken, err := utils.GenerateJWT(
-		githubUser["login"].(string),
-	)
+	username := ""
+	if login, ok := githubUser["login"].(string); ok {
+		username = strings.TrimSpace(login)
+	}
+
+	email := ""
+
+	emailResp, err := client.Get("https://api.github.com/user/emails")
+	if err == nil {
+
+		defer emailResp.Body.Close()
+
+		emailBody, _ := io.ReadAll(emailResp.Body)
+
+		var emails []map[string]interface{}
+
+		json.Unmarshal(emailBody, &emails)
+
+		for _, e := range emails {
+
+			if primary, ok := e["primary"].(bool); ok && primary {
+
+				if em, ok := e["email"].(string); ok {
+
+					email = strings.TrimSpace(em)
+
+					break
+				}
+			}
+		}
+	}
+
+	jwtToken, err := utils.GenerateJWT(username)
 
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "JWT generation failed",
+		})
+		return
+	}
 
-		c.JSON(500, gin.H{"error": "JWT error"})
+	now := time.Now().UTC()
+
+	user := models.User{
+		ID:        primitive.NewObjectID(),
+		Username:  username,
+		Email:     email,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	repo := getUserRepository()
+
+	if repo == nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "user repository unavailable",
+		})
+
+		return
+	}
+	fmt.Println("GitHub user:", githubUser)
+	fmt.Println(email)
+	if email != "" {
+		existingUser, err := repo.FindByEmail(c.Request.Context(), email)
+		fmt.Println(existingUser)
+		if err == nil && existingUser != nil {
+			fmt.Println("user already exists")
+			c.JSON(http.StatusOK, gin.H{
+				"user":  existingUser,
+				"token": "Bearer " + jwtToken,
+			})
+			return
+		}
+		if err != nil && err != repository.ErrUserNotFound {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to check existing user",
+			})
+			return
+		}
+	}
+
+	if err := repo.Create(c.Request.Context(), &user); err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to create user",
+		})
 
 		return
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 
-		"user":  githubUser,
+		"user":  user,
 		"token": "Bearer " + jwtToken,
 	})
 }

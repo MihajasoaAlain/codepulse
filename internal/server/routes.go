@@ -1,7 +1,8 @@
 package server
 
 import (
-	"codepulse/internal/auth/routes"
+	authRoutes "codepulse/internal/auth/routes"
+	usersRoutes "codepulse/internal/features/users/routes"
 	"net/http"
 
 	_ "codepulse/docs"
@@ -23,18 +24,19 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/", s.HelloWorldHandler)
-	routes.AuthRoutes(r)
+	authRoutes.AuthRoutes(r)
+	usersRoutes.UsersRoutes(r)
 	r.Use(JWTAuthMiddleware()).GET("/health", s.healthHandler)
 
 	return r
 }
 
 // HelloWorldHandler godoc
-// @Summary      test helloword
-// @Description  add
-// @Tags         Hello
-// @Success      200
-// @Router       / [get]
+// @Summary test helloword
+// @Descriptiona add
+// @Tags Hello
+// @Success 200
+// @Router / [get]
 func (s *Server) HelloWorldHandler(c *gin.Context) {
 	resp := make(map[string]string)
 	resp["message"] = "Hello World"
