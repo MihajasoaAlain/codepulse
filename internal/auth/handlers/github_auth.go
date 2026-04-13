@@ -158,11 +158,12 @@ func GithubCallback(c *gin.Context) {
 	now := time.Now().UTC()
 
 	user := models.User{
-		ID:        primitive.NewObjectID(),
-		Username:  username,
-		Email:     email,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          primitive.NewObjectID(),
+		Username:    username,
+		Email:       email,
+		GithubToken: token.AccessToken,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	repo := getUserRepository()
