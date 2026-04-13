@@ -82,6 +82,7 @@ func (r *MongoUserRepository) GetGithubToken(ctx context.Context, req dto.UserRe
 		options.FindOne().SetProjection(bson.M{
 			"githubToken":        1,
 			"githubRefreshToken": 1,
+			"username":           1,
 			"_id":                0,
 		}),
 	).Decode(&user)
@@ -93,6 +94,7 @@ func (r *MongoUserRepository) GetGithubToken(ctx context.Context, req dto.UserRe
 	}
 
 	return dto.UserGithubTokenResponse{
+		Username:           user.Username,
 		GithubToken:        user.GithubToken,
 		GithubRefreshToken: user.GithubRefreshToken,
 	}, nil
