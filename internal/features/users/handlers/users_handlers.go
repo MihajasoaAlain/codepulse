@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -11,11 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-)
 
-type addUserErrorResponse struct {
-	Error string `json:"error"`
-}
+	"codepulse/internal/features/users/dto"
+)
 
 var (
 	userRepo   repository.UserRepository
@@ -28,7 +27,7 @@ func SetUserRepository(repo repository.UserRepository) {
 	userRepo = repo
 }
 
-func getUserRepository() repository.UserRepository {
+func GetUserRepository() repository.UserRepository {
 	userRepoMu.RLock()
 	repo := userRepo
 	userRepoMu.RUnlock()
@@ -53,8 +52,6 @@ func getUserRepository() repository.UserRepository {
 // @Produce json
 // @Param user body models.CreateUserRequest true "User payload"
 // @Success 201 {object} models.User
-// @Failure 400 {object} addUserErrorResponse
-// @Failure 500 {object} addUserErrorResponse
 // @Router /users [post]
 func AddUser(c *gin.Context) {
 	var req models.CreateUserRequest
@@ -78,7 +75,7 @@ func AddUser(c *gin.Context) {
 		UpdatedAt: now,
 	}
 
-	repo := getUserRepository()
+	repo := GetUserRepository()
 	if repo == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "users repository unavailable"})
 		return
@@ -88,23 +85,81 @@ func AddUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
+	response := dto.UserResponse{
+		ID:        user.ID.Hex(),
+		Username:  user.Username,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt.String(),
+	}
 
-	c.JSON(http.StatusCreated, user)
+	c.JSON(http.StatusCreated, response)
 }
 
-func FindByEmail(c *gin.Context) (models.User, error) {
+// FindByEmail godoc
+// @Summary Find user by email
+// @Description Find a user by email.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param email path string true "User email"
+// @Success 200 {object} models.User
+// @Router  /users/{email} [get]
+func FindByEmail(c *gin.Context) {
 	email := c.Param("email")
-	repo := getUserRepository()
+	repo := GetUserRepository()
 
 	if repo == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "users repository unavailable"})
-		return models.User{}, nil
+		return
 	}
 
 	user, err := repo.FindByEmail(c.Request.Context(), email)
 	if err != nil {
-		return models.User{}, err
+		if errors.Is(err, repository.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find user"})
+		return
+	}
+	response := dto.UserResponse{
+		ID:        user.ID.Hex(),
+		Username:  user.Username,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt.String(),
 	}
 
-	return *user, nil
+	c.JSON(http.StatusOK, response)
+}
+
+// GetGithubToken godoc
+// @Summary Get GitHub token
+// @Description Get the GitHub token for a user.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param email path string true "User email"
+// @Success 200 {object} dto.UserGithubTokenResponse
+// @Router /users/{email}/github [get]
+func GetGithubToken(c *gin.Context) {
+	repo := GetUserRepository()
+
+	if repo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "users repository unavailable"})
+		return
+	}
+
+	response, err := repo.GetGithubToken(c.Request.Context(), dto.UserRequest{
+		Email: c.Param("email"),
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get github token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
