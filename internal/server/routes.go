@@ -2,6 +2,7 @@ package server
 
 import (
 	authRoutes "codepulse/internal/auth/routes"
+	githubRoutes "codepulse/internal/features/github/routes"
 	usersRoutes "codepulse/internal/features/users/routes"
 	"net/http"
 
@@ -25,6 +26,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/", s.HelloWorldHandler)
 	authRoutes.AuthRoutes(r)
+	githubRoutes.GithubRoutes(r)
 	usersRoutes.UsersRoutes(r)
 	r.Use(JWTAuthMiddleware()).GET("/health", s.healthHandler)
 

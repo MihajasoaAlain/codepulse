@@ -9,4 +9,6 @@ import (
 func UsersRoutes(r *gin.Engine) {
 	users := r.Group("/users")
 	users.POST("", handlers.AddUser)
+	users.GET("/:email", handlers.FindByEmail)
+	users.GET("/:email/github", handlers.GetGithubToken)
 }
