@@ -11,6 +11,7 @@ type UserResponse struct {
 }
 
 type UserGithubTokenResponse struct {
+	Username           string `json:"username"`
 	GithubToken        string `json:"githubToken"`
 	GithubRefreshToken string `json:"githubRefreshToken"`
 }

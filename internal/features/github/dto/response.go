@@ -1,7 +1,5 @@
 package dto
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
-
 type GithubRepo struct {
 	ID       int    `json:"id"`
 	Name     string `json:"name"`
@@ -9,7 +7,7 @@ type GithubRepo struct {
 	Private  bool   `json:"private"`
 }
 type GithubCommit struct {
-	CommitDate  primitive.DateTime `json:"commitDate"`
-	Committer   string             `json:"committer"`
-	CommitCount int                `json:"commitCount"`
+	CommitDate  string `json:"commitDate"`
+	Committer   string `json:"committer"`
+	CommitCount int    `json:"commitCount"`
 }

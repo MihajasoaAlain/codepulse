@@ -1,7 +1,6 @@
 package dto
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
-
 type CommitRequest struct {
-	commitDate primitive.DateTime `json:"commitDate,omitempty" bson:"commitDate,omitempty"`
+	Email      string `uri:"email" form:"email" json:"email"`
+	CommitDate string `form:"commitDate" json:"commitDate"`
 }
