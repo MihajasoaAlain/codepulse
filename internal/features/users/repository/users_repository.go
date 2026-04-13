@@ -1,13 +1,16 @@
 package repository
 
 import (
+	"codepulse/internal/features/users/dto"
 	"codepulse/internal/features/users/models"
 	"context"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -15,6 +18,7 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
+	GetGithubToken(ctx context.Context, req dto.UserRequest) (dto.UserGithubTokenResponse, error)
 }
 
 type MongoUserRepository struct {
@@ -65,4 +69,31 @@ func (r *MongoUserRepository) Create(ctx context.Context, user *models.User) err
 
 	_, err := r.collection.InsertOne(ctx, user)
 	return err
+}
+func (r *MongoUserRepository) GetGithubToken(ctx context.Context, req dto.UserRequest) (dto.UserGithubTokenResponse, error) {
+	if r == nil || r.collection == nil {
+		return dto.UserGithubTokenResponse{}, errors.New("users repository unavailable")
+	}
+
+	var user models.User
+	err := r.collection.FindOne(
+		ctx,
+		bson.M{"email": strings.TrimSpace(req.Email)},
+		options.FindOne().SetProjection(bson.M{
+			"githubToken":        1,
+			"githubRefreshToken": 1,
+			"_id":                0,
+		}),
+	).Decode(&user)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return dto.UserGithubTokenResponse{}, ErrUserNotFound
+		}
+		return dto.UserGithubTokenResponse{}, err
+	}
+
+	return dto.UserGithubTokenResponse{
+		GithubToken:        user.GithubToken,
+		GithubRefreshToken: user.GithubRefreshToken,
+	}, nil
 }
