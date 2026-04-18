@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"codepulse/internal/features/users/dto"
 	"codepulse/internal/features/users/handlers"
 	"codepulse/internal/features/users/models"
 	"context"
@@ -14,8 +15,16 @@ import (
 
 type fakeUserRepository struct{}
 
-func (f fakeUserRepository) Create(ctx context.Context, user *models.User) error {
+func (f fakeUserRepository) Create(_ context.Context, _ *models.User) error {
 	return nil
+}
+
+func (f fakeUserRepository) FindByEmail(_ context.Context, _ string) (*models.User, error) {
+	return &models.User{}, nil
+}
+
+func (f fakeUserRepository) GetGithubToken(_ context.Context, _ dto.UserRequest) (dto.UserGithubTokenResponse, error) {
+	return dto.UserGithubTokenResponse{}, nil
 }
 
 func TestHelloWorldHandler(t *testing.T) {

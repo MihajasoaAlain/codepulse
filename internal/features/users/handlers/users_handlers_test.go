@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"codepulse/internal/features/users/dto"
 	"codepulse/internal/features/users/models"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,14 @@ func (f fakeUserRepository) Create(ctx context.Context, user *models.User) error
 		return f.createFn(ctx, user)
 	}
 	return nil
+}
+
+func (f fakeUserRepository) FindByEmail(_ context.Context, _ string) (*models.User, error) {
+	return nil, nil
+}
+
+func (f fakeUserRepository) GetGithubToken(_ context.Context, _ dto.UserRequest) (dto.UserGithubTokenResponse, error) {
+	return dto.UserGithubTokenResponse{}, nil
 }
 
 func TestAddUser(t *testing.T) {

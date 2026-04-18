@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -58,8 +59,12 @@ func getUserRepository() repository.UserRepository {
 // @Success 307 {string} string "Redirect to GitHub"
 // @Router /auth/github/login [get]
 func GithubLogin(c *gin.Context) {
+	state := "state"
+	if redirect := c.Query("redirect"); redirect != "" {
+		state = "redirect:" + redirect
+	}
 
-	url := config.GithubOAuthConfig.AuthCodeURL("state")
+	url := config.GithubOAuthConfig.AuthCodeURL(state)
 
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
@@ -72,6 +77,7 @@ func GithubLogin(c *gin.Context) {
 // @Failure 500 {object} githubAuthErrorResponse
 // @Router /auth/github/callback [get]
 func GithubCallback(c *gin.Context) {
+	oauthState := c.Query("state")
 
 	code := c.Query("code")
 
@@ -158,12 +164,13 @@ func GithubCallback(c *gin.Context) {
 	now := time.Now().UTC()
 
 	user := models.User{
-		ID:          primitive.NewObjectID(),
-		Username:    username,
-		Email:       email,
-		GithubToken: token.AccessToken,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                 primitive.NewObjectID(),
+		Username:           username,
+		Email:              email,
+		GithubToken:        token.AccessToken,
+		GithubRefreshToken: token.RefreshToken,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 
 	repo := getUserRepository()
@@ -183,6 +190,10 @@ func GithubCallback(c *gin.Context) {
 		fmt.Println(existingUser)
 		if err == nil && existingUser != nil {
 			fmt.Println("user already exists")
+			if redirectURL := extractRedirect(oauthState); redirectURL != "" {
+				c.Redirect(http.StatusTemporaryRedirect, redirectURL+"?token="+neturl.QueryEscape("Bearer "+jwtToken))
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{
 				"user":  existingUser,
 				"token": "Bearer " + jwtToken,
@@ -206,9 +217,20 @@ func GithubCallback(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	if redirectURL := extractRedirect(oauthState); redirectURL != "" {
+		c.Redirect(http.StatusTemporaryRedirect, redirectURL+"?token="+neturl.QueryEscape("Bearer "+jwtToken))
+		return
+	}
 
+	c.JSON(http.StatusOK, gin.H{
 		"user":  user,
 		"token": "Bearer " + jwtToken,
 	})
+}
+
+func extractRedirect(state string) string {
+	if strings.HasPrefix(state, "redirect:") {
+		return strings.TrimPrefix(state, "redirect:")
+	}
+	return ""
 }
